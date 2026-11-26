@@ -2,10 +2,10 @@ import sys, json, pathlib
 S = pathlib.Path(__file__).parent; src = S/'src'
 out = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else S); out.mkdir(parents=True, exist_ok=True)
 
-# Supabase-project: vul hier de Project URL en de publishable key in zodra het project bestaat.
-# Zolang ze leeg zijn vraagt de app er bij het openen zelf om (en bewaart ze alleen in die browser).
-SUPABASE_URL = ''
-SUPABASE_KEY = ''
+# Supabase-project: hetzelfde project als het CRM (de tabelnamen botsen niet). De publishable key is bedoeld om openbaar te zijn.
+# Zijn ze leeg, dan vraagt de app er bij het openen zelf om (en bewaart ze alleen in die browser).
+SUPABASE_URL = 'https://vieqteitlgmspjirgbzq.supabase.co'
+SUPABASE_KEY = 'sb_publishable_I8jtbvstxaiovaL0f5jXGw_usVp8rl3'
 
 h = (src/'shell.html').read_text()
 js = (src/'app.js').read_text()
