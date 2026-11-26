@@ -254,12 +254,21 @@ function cardHtml(t) {
     (meta ? '<div class="tcard__meta">' + meta + '</div>' : '') +
     menu('tcard__menu', 'Meer opties', items) + '</div>';
 }
+/* kleur per lijst: High-prio groen, Wachten geel, de overige lijsten op volgorde uit een vast palet */
+var LIST_COLORS = ['blauw', 'paars', 'teal', 'roze', 'rood', 'grijs'];
+function listColor(l) {
+  var n = norm(l.name);
+  if (n.indexOf('prio') >= 0) return 'groen';
+  if (n.indexOf('wacht') >= 0) return 'geel';
+  var rest = S.lists.filter(function (x) { var m = norm(x.name); return m.indexOf('prio') < 0 && m.indexOf('wacht') < 0; });
+  return LIST_COLORS[Math.max(0, rest.indexOf(l)) % LIST_COLORS.length];
+}
 function colHtml(l, i) {
   var open = openTasks(l.id), done = doneTasks(l.id), isOpen = !!S.openDone[l.id] || (!!S.q && done.length > 0);
   var items = menuItem('add-task', l.id, 'plus', 'Taak toevoegen') + menuItem('list-rename', l.id, 'pencil', 'Naam wijzigen') +
     menuItem('list-move', l.id, 'chevron-left', 'Naar links', ' data-dir="-1"' + (i === 0 ? ' disabled' : '')) + menuItem('list-move', l.id, 'chevron-right', 'Naar rechts', ' data-dir="1"' + (i === S.lists.length - 1 ? ' disabled' : '')) +
     '<hr class="drpdwn__divider">' + menuItem('list-delete', l.id, 'trash', 'Lijst verwijderen', '', 'drpdwn__item--danger');
-  return '<div class="col" data-list="' + esc(l.id) + '">' +
+  return '<div class="col col--c lc-' + listColor(l) + '" data-list="' + esc(l.id) + '">' +
     '<div class="col__head"><h2 class="col__title" title="' + esc(l.name) + '"><span class="col__name">' + esc(l.name) + '</span> <span class="col__n">(' + open.length + ')</span></h2>' + menu('col__menu', 'Opties voor deze lijst', items) + '</div>' +
     '<button class="col__add" type="button" data-act="add-task" data-id="' + esc(l.id) + '">' + icon('plus') + 'Taak toevoegen</button>' +
     '<div class="col__body" data-drop="' + esc(l.id) + '">' +
@@ -742,6 +751,11 @@ function bindEvents() {
     if (popupOpen() && (t.id === 'p-text' || t.id === 't-title' || t.id === 't-due' || e.ctrlKey || e.metaKey)) { e.preventDefault(); var b = $('#popup [data-pbtn="0"]'); if (b) b.click(); }
   });
   $('#overlay').addEventListener('click', cancelPopup);
+  /* verticale scrollbalk van een lijst alleen tonen terwijl er gescrold wordt */
+  document.addEventListener('scroll', function (e) {
+    var el = e.target; if (!el.classList || !el.classList.contains('col__body')) return;
+    el.classList.add('is-scrolling'); clearTimeout(el._st); el._st = setTimeout(function () { el.classList.remove('is-scrolling'); }, 700);
+  }, true);
   document.addEventListener('scroll', function (e) { if ($('.drpdwn--open [data-fixed]') && e.target.classList && (e.target.classList.contains('col__body') || e.target.classList.contains('board') || e.target.classList.contains('npane__scroll'))) closeMenus(); }, true);
 
   /* kaarten slepen: naar een andere lijst of een andere plek in dezelfde lijst */
