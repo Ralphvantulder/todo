@@ -9,10 +9,10 @@ Vormgeving: het Moneybird-template van het CRM voor de schil (bovenbalk, zijbalk
 
 ## Hoe het werkt
 
-- **Online:** GitHub Pages serveert `index.html` uit deze repository. De pagina bevat geen taken of notities.
+- **Online:** https://todo.tulderconsultancy.nl. GitHub Pages serveert `index.html` uit deze repository (bestand `CNAME`; bij Strato wijst het subdomein `todo` met een CNAME-record naar `ralphvantulder.github.io`). De pagina bevat geen taken of notities.
 - **Data:** Supabase. Tabellen `lists`, `labels`, `tasks`, `projects`, `notes`, elk met Row Level Security: alleen de ingelogde eigenaar ziet en wijzigt zijn eigen rijen. Schema: `todo-schema.sql`. Het schema mag in een eigen Supabase-project of in het project van het CRM; de tabelnamen botsen niet.
 - **Inloggen:** e-mail en wachtwoord (Supabase Auth). De publishable key in `index.html` is bedoeld om openbaar te zijn; zonder inlog geeft hij geen toegang.
-- **Database koppelen:** vul `SUPABASE_URL` en `SUPABASE_KEY` in bovenin `build.py` en bouw opnieuw. Zolang ze leeg zijn vraagt de app er bij het openen om en bewaart ze alleen in die browser.
+- **Database:** de tabellen staan in het Supabase-project van het CRM; `SUPABASE_URL` en `SUPABASE_KEY` staan bovenin `build.py`. Inloggen doe je met hetzelfde account als in het CRM.
 - **Demo:** `index.html?demo` draait met verzonnen voorbeelddata in het geheugen, zonder database.
 
 ## Bediening
