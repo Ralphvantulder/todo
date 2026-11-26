@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="To do">
+<title>To do</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!--
+  To do Ralph · to do's op een bord met lijsten (zoals Teams/Planner) en notities per project.
+  Opzet gelijk aan het CRM: Moneybird UI-template, Supabase met Row Level Security, GitHub Pages.
+  Demo zonder database: voeg ?demo toe aan de URL.
+-->
+<style>
+/*TEMPLATE_CSS*/
+/*APP_CSS*/
+/*TEMPLATE_TAIL_CSS*/
+</style>
+</head>
+<body>
+<!--ICONS-->
+
+<!-- ===================== BOVENBALK ===================== -->
+<nav class="topnav" aria-label="Hoofdbalk">
+  <div class="topnav__items">
+    <div class="topnav__left">
+      <a class="topnav__branding" href="#taken">
+        <svg class="brand-logo" aria-hidden="true"><use href="#i-logo"/></svg>
+        <span class="topnav__branding-text">To do</span>
+      </a>
+      <span class="state-label state-label--warning hidden" id="demo-flag">Demo</span>
+    </div>
+    <div class="topnav__center">
+      <form class="topnav-search" role="search" onsubmit="return false">
+        <svg class="icon topnav-search__icon"><use href="#i-search"/></svg>
+        <input class="topnav-search__input" id="zoek" type="search" placeholder="Zoek een taak of notitie" aria-label="Zoeken" autocomplete="off">
+        <kbd class="topnav-search__kbd">/</kbd>
+      </form>
+    </div>
+    <div class="topnav__right">
+      <div class="drpdwn">
+        <button class="btn btn--success" type="button" aria-haspopup="menu" aria-expanded="false" data-drpdwn>
+          <svg class="icon icon--14"><use href="#i-plus"/></svg><span class="btn__text">Toevoegen</span>
+          <svg class="icon btn__icon-right"><use href="#i-chevron-down"/></svg>
+        </button>
+        <div class="drpdwn__menu drpdwn__menu--right" role="menu">
+          <button class="drpdwn__item" role="menuitem" data-act="new-task"><svg class="icon"><use href="#i-check-circle"/></svg>Taak</button>
+          <button class="drpdwn__item" role="menuitem" data-act="new-list"><svg class="icon"><use href="#i-board"/></svg>Lijst</button>
+          <hr class="drpdwn__divider">
+          <button class="drpdwn__item" role="menuitem" data-act="new-note"><svg class="icon"><use href="#i-note"/></svg>Notitie</button>
+          <button class="drpdwn__item" role="menuitem" data-act="new-project"><svg class="icon"><use href="#i-folder"/></svg>Project</button>
+        </div>
+      </div>
+      <div class="drpdwn topnav__user">
+        <button class="btn" type="button" aria-haspopup="menu" aria-expanded="false" data-drpdwn aria-label="Account">
+          <svg class="icon icon--14"><use href="#i-user"/></svg><span class="btn__text" id="user-name"></span>
+          <svg class="icon btn__icon-right"><use href="#i-chevron-down"/></svg>
+        </button>
+        <div class="drpdwn__menu drpdwn__menu--blue drpdwn__menu--right" role="menu">
+          <button class="drpdwn__item" role="menuitem" data-href="#instellingen"><svg class="icon"><use href="#i-settings"/></svg>Instellingen</button>
+          <hr class="drpdwn__divider">
+          <button class="drpdwn__item" role="menuitem" data-act="logout"><svg class="icon"><use href="#i-logout"/></svg>Uitloggen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- ===================== ZIJBALK ===================== -->
+<nav class="sidenav" aria-label="Hoofdnavigatie">
+  <ul class="sidenav__items">
+    <li class="sidenav__item"><a class="sidenav__item-link" href="#taken" data-nav="taken"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-board"/></svg></span><span class="sidenav__item-text">To do's</span><span class="badge hidden" data-count="taken" style="margin-right:8px"></span></a></li>
+    <li class="sidenav__item"><a class="sidenav__item-link" href="#notities" data-nav="notities"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-note"/></svg></span><span class="sidenav__item-text">Notities</span></a></li>
+    <li class="sidenav__divider" role="separator"></li>
+    <li class="sidenav__item"><a class="sidenav__item-link" href="#instellingen" data-nav="instellingen"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-settings"/></svg></span><span class="sidenav__item-text">Instellingen</span></a></li>
+  </ul>
+  <div class="sidenav__footer">
+    <a class="sidenav__item-link" href="#" id="inklappen"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-collapse"/></svg></span><span class="sidenav__item-text">Inklappen</span></a>
+  </div>
+</nav>
+
+<!-- ===================== WERKVLAK ===================== -->
+<main class="main" id="main"></main>
+
+<!-- ===================== MOBIELE ONDERBALK ===================== -->
+<nav class="tabbar" aria-label="Navigatie">
+  <a class="tabbar__item" href="#taken" data-nav="taken"><svg class="icon"><use href="#i-board"/></svg>To do's<span class="tabbar__count hidden" data-count="taken"></span></a>
+  <a class="tabbar__item" href="#notities" data-nav="notities"><svg class="icon"><use href="#i-note"/></svg>Notities</a>
+  <a class="tabbar__item" href="#instellingen" data-nav="instellingen"><svg class="icon"><use href="#i-settings"/></svg>Meer</a>
+</nav>
+
+<!-- ===================== INLOGGEN ===================== -->
+<div class="auth">
+  <div class="base-container auth__box">
+    <div class="auth__brand"><svg class="brand-logo" aria-hidden="true"><use href="#i-logo"/></svg>To do</div>
+    <div id="auth-box"></div>
+  </div>
+</div>
+
+<!-- ===================== DIALOOG EN MELDING ===================== -->
+<div class="overlay" id="overlay"></div>
+<div class="popup" id="popup" role="dialog" aria-modal="true" aria-labelledby="popup-title">
+  <div class="popup__container">
+    <div class="popup__header"><h2 class="popup__title" id="popup-title"></h2></div>
+    <div class="popup__body" id="popup-body"></div>
+    <div class="popup__footer" id="popup-footer"></div>
+  </div>
+</div>
+<div class="alert toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/*SUPABASE_JS*/
+</script>
+<script>
+/*APP_JS*/
+</script>
+</body>
+</html>

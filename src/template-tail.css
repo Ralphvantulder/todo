@@ -1,0 +1,33 @@
+/* ============================================================
+   12. RESPONSIVE (Moneybird breekt bij 1100, 960, 768, 480) — achteraan, anders winnen de gewone regels
+   ============================================================ */
+@media (max-width:1100px){.cards{grid-template-columns:repeat(2,1fr)}.topnav-search{width:260px}}
+@media (max-width:960px){.topnav__branding{width:auto}.topnav__branding-text{display:none}}
+@media (max-width:768px){
+  body{grid-template-columns:1fr;grid-template-rows:var(--topnav-height) 1fr}
+  .sidenav{display:none}
+  .topnav-search{display:none}
+  .topnav__items{grid-template-columns:auto 0 auto}
+  .topnav__left .btn__text,.topnav__right .btn__text{display:none}
+  .topnav__left .btn,.topnav__right .btn{padding:0 8px;gap:4px}
+  .swatches{grid-template-columns:repeat(auto-fill,minmax(56px,1fr))}
+  .cards{grid-template-columns:1fr}
+  .form-input{grid-template-columns:1fr}
+  .feed-entry{grid-template-columns:36px auto 1fr 88px}
+  .actionbar{height:auto;flex-wrap:wrap;padding:12px 0}
+  .actionbar__actions{flex-wrap:wrap}
+  .drpdwn__menu{max-width:calc(100vw - 32px)}
+  .popup__container{margin:8px}
+}
+
+/* ============================================================
+   13. AFDRUKKEN
+   ============================================================ */
+@media print{
+  body{display:block;background:#fff}
+  .topnav,.sidenav,.actionbar__actions,.actionbar-bottom,.drpdwn__menu,.overlay,.popup,.pagination{display:none!important}
+  .main{padding:0}
+  .base-container,.table-container,.alert,.card{box-shadow:none;border:1px solid var(--n300);break-inside:avoid}
+  .view{display:none}.view--active{display:block}
+  .text-field__input,.select{border:0;padding-left:0}
+}
