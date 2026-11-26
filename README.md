@@ -18,7 +18,8 @@ Vormgeving: het Moneybird-template van het CRM voor de schil (bovenbalk, zijbalk
 ## Bediening
 
 - **Taak toevoegen:** klik op *Taak toevoegen* boven een lijst, typ en druk op Enter. Het invoerveld blijft open voor de volgende taak; Esc sluit het.
-- **Taak openen:** klik op de kaart. Daar staan lijst, labels, einddatum, notities en de checklist. Ctrl+Enter slaat op.
+- **Taak openen:** klik op de kaart. Rechts schuift een paneel open met lijst, labels, einddatum, de checklist en de notities. Ctrl+Enter slaat op.
+- **Checklist met sub to do's:** Enter voegt een item toe, Tab maakt van een item een sub to do onder het item erboven, Shift+Tab zet het terug (of gebruik het pijltje achter het item).
 - **Afvinken:** klik op het rondje. De taak verhuist naar *Voltooide taken*; daar zet je hem met hetzelfde rondje terug.
 - **Verplaatsen:** sleep een kaart naar een andere lijst of een andere plek, of gebruik de drie puntjes op de kaart (handig op de telefoon). Via dezelfde puntjes zet je snel een label aan of uit.
 - **Lijsten:** *Nieuwe lijst* rechts van het bord; de drie puntjes naast de lijstnaam voor hernoemen, naar links of rechts schuiven en verwijderen.
@@ -33,7 +34,7 @@ Claude werkt met een eigen Supabase-gebruiker die via `todo-toegang-claude.sql` 
 - Inloggen: `POST {SUPABASE_URL}/auth/v1/token?grant_type=password` met header `apikey: {publishable key}` en body `{"email": "...", "password": "..."}`. Het antwoord bevat `access_token`.
 - Lezen en schrijven: `{SUPABASE_URL}/rest/v1/<tabel>` met headers `apikey` en `Authorization: Bearer <access_token>`.
 - `owner_id` niet meesturen: de database vult de eigenaar zelf in.
-- `tasks`: `list_id` (verplicht), `title`, `notes`, `label_ids` (uuid's uit `labels`), `due_date`, `done` en `done_at`, `sort` (laag = bovenaan; nieuwe taak bovenaan = laagste `sort` van de lijst min 1), `checklist` (JSON-lijst van `{"id","text","done"}`).
+- `tasks`: `list_id` (verplicht), `title`, `notes`, `label_ids` (uuid's uit `labels`), `due_date`, `done` en `done_at`, `sort` (laag = bovenaan; nieuwe taak bovenaan = laagste `sort` van de lijst min 1), `checklist` (JSON-lijst van `{"id","text","done","indent"}`; `indent` 1 = sub to do van het item erboven).
 - `notes`: `project_id` (verplicht), `title`, `body` (platte tekst), `pinned`. Zet bij een wijziging `updated_at` op nu, dan staat de notitie bovenaan.
 
 ## Bouwen
