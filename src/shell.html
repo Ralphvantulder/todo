@@ -51,6 +51,7 @@
         <div class="drpdwn__menu drpdwn__menu--right" role="menu">
           <button class="drpdwn__item" role="menuitem" data-act="new-task"><svg class="icon"><use href="#i-check-circle"/></svg>Taak</button>
           <button class="drpdwn__item" role="menuitem" data-act="new-list"><svg class="icon"><use href="#i-board"/></svg>Lijst</button>
+          <button class="drpdwn__item" role="menuitem" data-act="new-deadline"><svg class="icon"><use href="#i-calendar"/></svg>Deadline</button>
           <hr class="drpdwn__divider">
           <button class="drpdwn__item" role="menuitem" data-act="new-note"><svg class="icon"><use href="#i-note"/></svg>Notitie</button>
           <button class="drpdwn__item" role="menuitem" data-act="new-project"><svg class="icon"><use href="#i-folder"/></svg>Project</button>
@@ -75,6 +76,7 @@
 <nav class="sidenav" aria-label="Hoofdnavigatie">
   <ul class="sidenav__items">
     <li class="sidenav__item"><a class="sidenav__item-link" href="#taken" data-nav="taken"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-board"/></svg></span><span class="sidenav__item-text">To do's</span><span class="badge hidden" data-count="taken" style="margin-right:8px"></span></a></li>
+    <li class="sidenav__item"><a class="sidenav__item-link" href="#deadlines" data-nav="deadlines"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-calendar"/></svg></span><span class="sidenav__item-text">Deadlines</span><span class="badge hidden" data-count="deadlines" style="margin-right:8px"></span></a></li>
     <li class="sidenav__item"><a class="sidenav__item-link" href="#notities" data-nav="notities"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-note"/></svg></span><span class="sidenav__item-text">Notities</span></a></li>
     <li class="sidenav__divider" role="separator"></li>
     <li class="sidenav__item"><a class="sidenav__item-link" href="#instellingen" data-nav="instellingen"><span class="sidenav__item-icon"><svg class="icon"><use href="#i-settings"/></svg></span><span class="sidenav__item-text">Instellingen</span></a></li>
@@ -90,6 +92,7 @@
 <!-- ===================== MOBIELE ONDERBALK ===================== -->
 <nav class="tabbar" aria-label="Navigatie">
   <a class="tabbar__item" href="#taken" data-nav="taken"><svg class="icon"><use href="#i-board"/></svg>To do's<span class="tabbar__count hidden" data-count="taken"></span></a>
+  <a class="tabbar__item" href="#deadlines" data-nav="deadlines"><svg class="icon"><use href="#i-calendar"/></svg>Deadlines<span class="tabbar__count hidden" data-count="deadlines"></span></a>
   <a class="tabbar__item" href="#notities" data-nav="notities"><svg class="icon"><use href="#i-note"/></svg>Notities</a>
   <a class="tabbar__item" href="#instellingen" data-nav="instellingen"><svg class="icon"><use href="#i-settings"/></svg>Meer</a>
 </nav>

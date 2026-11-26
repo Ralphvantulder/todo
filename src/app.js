@@ -50,7 +50,7 @@ function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 /* ============================================================
    OPSLAG: Supabase of demo
    ============================================================ */
-var TABLES = ['lists', 'labels', 'tasks', 'projects', 'notes'];
+var TABLES = ['lists', 'labels', 'tasks', 'projects', 'notes', 'deadlines'];
 var Store = {
   sb: null, user: null,
   init: function () {
@@ -133,18 +133,20 @@ var Demo = { data: null, build: function () {
   var N = [['p0', 'Kick-off', 'Aanwezig: het hele team.\n\nAfspraken\n- Planning rond vóór vrijdag\n- Dataroom staat open vanaf maandag\n- Wekelijks overleg op dinsdag', true, 1], ['p0', 'Vragen voor het management', '1. Hoe is de omzet opgebouwd?\n2. Welke investeringen staan gepland?\n3. Wat zijn de grootste risico\'s?', false, 30],
     ['p0', 'Losse gedachten', 'Marge per vestiging naast elkaar zetten.', false, 60 * 26], ['p1', 'Nieuwe laptop', 'Opties vergelijken en offerte opvragen.', false, 60 * 50], ['p2', 'Onderwerpen voor een blog', '', false, 60 * 200]];
   var notes = N.map(function (n, i) { var t = new Date(Date.now() - n[4] * 60000).toISOString(); return { id: 'n' + i, project_id: n[0], title: n[1], body: n[2], pinned: n[3], created_at: t, updated_at: t }; });
-  this.data = { lists: lists, labels: labels, tasks: tasks, projects: projects, notes: notes };
+  var D = [['Jaarrekening indienen', 3, '17:00:00', 'Stukken staan klaar in de map.'], ['Offerte verloopt', 9, null, ''], ['Bestuursvergadering', 16, '10:00:00', ''], ['Btw-aangifte', -2, null, '']];
+  var deadlines = D.map(function (d, i) { return { id: 'd' + i, title: d[0], due_date: isoDate(addDays(today(), d[1])), due_time: d[2], notes: d[3], done: false, done_at: null, created_at: now, updated_at: now }; });
+  this.data = { lists: lists, labels: labels, tasks: tasks, projects: projects, notes: notes, deadlines: deadlines };
 } };
 
 /* ============================================================
    STAAT EN AFGELEIDE GEGEVENS
    ============================================================ */
-var S = { lists: [], labels: [], tasks: [], projects: [], notes: [], loadedAt: 0, q: '', adding: null, openDone: {}, labelFilter: '' };
+var S = { lists: [], labels: [], tasks: [], projects: [], notes: [], deadlines: [], calMonth: '', loadedAt: 0, q: '', adding: null, openDone: {}, labelFilter: '' };
 try { S.openDone = JSON.parse(lsGet('todo.openDone') || '{}') || {}; } catch (e) {}
 
 function bySort(a, b) { return (a.sort - b.sort) || (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0); }
 function setData(d) {
-  S.lists = d.lists; S.labels = d.labels; S.tasks = d.tasks; S.projects = d.projects; S.notes = d.notes;
+  S.lists = d.lists; S.labels = d.labels; S.tasks = d.tasks; S.projects = d.projects; S.notes = d.notes; S.deadlines = d.deadlines || [];
   S.tasks.forEach(function (t) { t.checklist = arr(t.checklist); t.label_ids = arr(t.label_ids); });
   S.loadedAt = Date.now(); index();
 }
@@ -157,6 +159,7 @@ function index() {
   IX.task = {}; S.tasks.forEach(function (t) { IX.task[t.id] = t; });
   IX.project = {}; S.projects.forEach(function (p) { IX.project[p.id] = p; });
   IX.note = {}; S.notes.forEach(function (n) { IX.note[n.id] = n; });
+  IX.deadline = {}; S.deadlines.forEach(function (d) { IX.deadline[d.id] = d; });
 }
 function taskLabels(t) { return arr(t.label_ids).map(function (id) { return IX.label[id]; }).filter(Boolean).sort(bySort); }
 function matchTask(t) {
@@ -169,6 +172,7 @@ function openTasks(lid, all) { return S.tasks.filter(function (t) { return t.lis
 function doneTasks(lid) { return S.tasks.filter(function (t) { return t.list_id === lid && t.done && matchTask(t); }).sort(function (a, b) { return (a.done_at || '') < (b.done_at || '') ? 1 : -1; }); }
 function topSort(lid) { var o = openTasks(lid, true); return o.length ? o[0].sort - 1 : 0; }
 function dueCount() { var t = todayIso(); return S.tasks.filter(function (x) { return !x.done && x.due_date && x.due_date <= t; }).length; }
+function deadlineCount() { var t = todayIso(); return S.deadlines.filter(function (x) { return !x.done && x.due_date <= t; }).length; }
 function notesOf(pid) {
   return S.notes.filter(function (n) { return n.project_id === pid; }).sort(function (a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0); });
 }
@@ -184,7 +188,7 @@ function go(hash) { if (location.hash === '#' + hash) render(); else location.ha
 function parseHash() {
   var h = location.hash.replace(/^#/, '') || 'taken', p = h.split('/');
   route = { view: p[0], id: p[1] ? decodeURIComponent(p[1]) : null, extra: p[2] ? decodeURIComponent(p[2]) : null };
-  if (['taken', 'notities', 'instellingen'].indexOf(route.view) < 0) route.view = 'taken';
+  if (['taken', 'deadlines', 'notities', 'instellingen'].indexOf(route.view) < 0) route.view = 'taken';
 }
 function render(keepFocus) {
   parseHash();
@@ -196,7 +200,7 @@ function render(keepFocus) {
   var ae = document.activeElement;
   if (keepFocus && ae && ae.id && main.contains(ae)) { keep.focus = ae.id; try { keep.sel = [ae.selectionStart, ae.selectionEnd]; } catch (e) {} keep.top = ae.scrollTop; }
   $all('.npane__scroll').forEach(function (p, i) { keep['np' + i] = p.scrollTop; });
-  try { html = ({ taken: vTaken, notities: vNotities, instellingen: vInstellingen })[route.view](); }
+  try { html = ({ taken: vTaken, deadlines: vDeadlines, notities: vNotities, instellingen: vInstellingen })[route.view](); }
   catch (e) { console.error(e); html = '<section class="container"><div class="actionbar"><h1 class="actionbar__title">Er ging iets mis</h1></div><div class="alert alert--danger">' + icon('alert', 'alert__icon') + '<div class="alert__body">' + esc(e.message) + '</div></div></section>'; }
   rendering = true;
   main.innerHTML = html;
@@ -207,8 +211,10 @@ function render(keepFocus) {
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   var due = dueCount();
+  var dl = deadlineCount();
+  $all('[data-count="deadlines"]').forEach(function (b) { b.textContent = dl; b.classList.toggle('hidden', !dl); b.title = 'Vandaag of eerder'; });
   $all('[data-count="taken"]').forEach(function (b) { b.textContent = due; b.classList.toggle('hidden', !due); b.title = 'Vandaag of eerder te doen'; });
-  document.title = ({ taken: 'To do\'s', notities: 'Notities', instellingen: 'Instellingen' })[route.view] + ' · To do';
+  document.title = ({ taken: 'To do\'s', deadlines: 'Deadlines', notities: 'Notities', instellingen: 'Instellingen' })[route.view] + ' · To do';
   board = $('#board');
   if (board) { if (keep.left) board.scrollLeft = keep.left; $all('.col__body', board).forEach(function (b) { if (keep.cols[b.dataset.drop]) b.scrollTop = keep.cols[b.dataset.drop]; }); }
   $all('.npane__scroll').forEach(function (p, i) { if (keep['np' + i]) p.scrollTop = keep['np' + i]; });
@@ -287,6 +293,77 @@ function vTaken() {
     '<span class="board-bar__count muted">' + (S.q || S.labelFilter ? 'Gefilterd · ' : '') + plural(totalOpen, 'open taak', 'open taken') + '</span></div>' +
     '<div class="board" id="board">' + S.lists.map(colHtml).join('') +
     '<div class="col col--new"><button class="col__newlist" type="button" data-act="new-list">' + icon('plus') + 'Nieuwe lijst</button></div></div></section>';
+}
+
+/* ---------- DEADLINES: maandkalender met losse deadlines en to do's met een einddatum ---------- */
+var MONTHS_LONG = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+var DAYS_SHORT = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'], DAYS_LONG = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+function fmtTime(t) { return t ? String(t).slice(0, 5) : ''; }
+/* alles wat op de kalender hoort: { kind: 'deadline' | 'task', id, title, date, time, done, color } */
+function calItems() {
+  var q = norm(S.q), out = [];
+  S.deadlines.forEach(function (d) { out.push({ kind: 'deadline', id: d.id, title: d.title, date: d.due_date, time: fmtTime(d.due_time), done: !!d.done, notes: d.notes || '', color: 'rood', sub: 'Deadline' }); });
+  S.tasks.forEach(function (t) { if (!t.due_date) return; var l = IX.list[t.list_id]; out.push({ kind: 'task', id: t.id, title: t.title, date: t.due_date, time: '', done: !!t.done, notes: t.notes || '', color: l ? listColor(l) : 'grijs', sub: 'To do' + (l ? ' · ' + l.name : '') }); });
+  if (q) out = out.filter(function (x) { return norm(x.title).indexOf(q) >= 0 || norm(x.notes).indexOf(q) >= 0; });
+  return out.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.time || '99') < (b.time || '99') ? -1 : (a.time || '99') > (b.time || '99') ? 1 : cmpName(a.title, b.title); });
+}
+function calChip(x) {
+  return '<button type="button" class="cchip lc-' + esc(x.color) + ' cchip--' + x.kind + (x.done ? ' cchip--done' : '') + '" data-act="' + (x.kind === 'task' ? 'edit-task' : 'edit-deadline') + '" data-id="' + esc(x.id) + '" title="' + esc(x.sub + ': ' + x.title) + '">' +
+    icon(x.kind === 'task' ? 'check-circle' : 'clock', 'icon--12') + (x.time ? '<span class="cchip__time">' + esc(x.time) + '</span>' : '') + '<span class="cchip__text">' + esc(x.title) + '</span></button>';
+}
+function agendaRow(x) {
+  var n = daysBetween(today(), parseDate(x.date)), d = parseDate(x.date);
+  var when = n === 0 ? 'Vandaag' : n === 1 ? 'Morgen' : n === -1 ? 'Gisteren' : DAYS_LONG[d.getDay()].slice(0, 2) + ' ' + fmtDate(x.date, d.getFullYear() !== today().getFullYear());
+  return '<div class="arow' + (x.done ? ' arow--done' : n < 0 ? ' arow--late' : n === 0 ? ' arow--today' : '') + '">' +
+    '<button type="button" class="tcheck' + (x.done ? ' tcheck--on' : '') + '" data-act="' + (x.kind === 'task' ? 'toggle-task' : 'toggle-deadline') + '" data-id="' + esc(x.id) + '" aria-label="' + (x.done ? 'Terugzetten' : 'Afvinken') + '">' + icon('check') + '</button>' +
+    '<button type="button" class="arow__main" data-act="' + (x.kind === 'task' ? 'edit-task' : 'edit-deadline') + '" data-id="' + esc(x.id) + '"><span class="arow__title">' + esc(x.title) + '</span>' +
+    '<span class="arow__meta"><span class="arow__when">' + esc(when + (x.time ? ' · ' + x.time : '')) + '</span><span class="lbl lc-' + esc(x.color) + '">' + esc(x.sub) + '</span></span></button></div>';
+}
+function vDeadlines() {
+  var t0 = today(), ym = /^\d{4}-\d{2}$/.test(S.calMonth) ? S.calMonth : isoDate(t0).slice(0, 7);
+  var y = +ym.slice(0, 4), m = +ym.slice(5, 7) - 1, first = new Date(y, m, 1);
+  var start = addDays(first, -((first.getDay() + 6) % 7)), items = calItems(), byDay = {};
+  items.forEach(function (x) { (byDay[x.date] = byDay[x.date] || []).push(x); });
+  var weeks = Math.ceil((((first.getDay() + 6) % 7) + new Date(y, m + 1, 0).getDate()) / 7), cells = '';
+  for (var i = 0; i < weeks * 7; i++) {
+    var d = addDays(start, i), iso = isoDate(d), list = byDay[iso] || [], max = 3;
+    cells += '<div class="cday' + (d.getMonth() !== m ? ' cday--out' : '') + (iso === isoDate(t0) ? ' cday--today' : '') + (d.getDay() === 0 || d.getDay() === 6 ? ' cday--we' : '') + '" data-day="' + iso + '">' +
+      '<div class="cday__head"><span class="cday__num">' + d.getDate() + '</span>' + (list.length ? '<span class="cday__dots">' + list.slice(0, 4).map(function (x) { return '<i class="lc-' + esc(x.color) + '"></i>'; }).join('') + '</span>' : '') +
+      '<button type="button" class="cday__add" data-act="new-deadline" data-date="' + iso + '" aria-label="Deadline toevoegen op ' + esc(fmtDate(iso, true)) + '" title="Deadline toevoegen">' + icon('plus', 'icon--12') + '</button></div>' +
+      '<div class="cday__items">' + list.slice(0, list.length > max ? max - 1 : max).map(calChip).join('') + (list.length > max ? '<span class="cday__more">+ ' + (list.length - max + 1) + ' meer</span>' : '') + '</div></div>';
+  }
+  var todayS = isoDate(t0), late = items.filter(function (x) { return !x.done && x.date < todayS; }), next = items.filter(function (x) { return !x.done && x.date >= todayS; });
+  var monthDone = items.filter(function (x) { return x.done && x.date.slice(0, 7) === ym; });
+  var agenda = (late.length ? '<h3 class="agenda__h agenda__h--late">Verlopen</h3>' + late.map(agendaRow).join('') : '') +
+    '<h3 class="agenda__h">Komend</h3>' + (next.length ? next.map(agendaRow).join('') : '<p class="muted agenda__empty">' + (S.q ? 'Niets gevonden.' : 'Geen komende deadlines.') + '</p>') +
+    (monthDone.length ? '<h3 class="agenda__h">Afgerond in ' + esc(MONTHS_LONG[m]) + '</h3>' + monthDone.map(agendaRow).join('') : '');
+  return '<section class="cal-page"><div class="board-bar"><h1 class="board-bar__title">Deadlines</h1>' +
+    '<div class="cal-nav"><button class="btn btn--icon-only" type="button" data-act="cal-move" data-dir="-1" aria-label="Vorige maand">' + icon('chevron-left') + '</button>' +
+    '<button class="btn" type="button" data-act="cal-today"><span class="btn__text">Vandaag</span></button>' +
+    '<button class="btn btn--icon-only" type="button" data-act="cal-move" data-dir="1" aria-label="Volgende maand">' + icon('chevron-right') + '</button>' +
+    '<span class="cal-nav__month">' + esc(MONTHS_LONG[m] + ' ' + y) + '</span></div>' +
+    '<button class="btn btn--primary cal-new" type="button" data-act="new-deadline">' + icon('plus', 'icon--14') + '<span class="btn__text">Deadline</span></button></div>' +
+    '<div class="cal-wrap"><div class="cal"><div class="cal__dow">' + DAYS_SHORT.map(function (n) { return '<span>' + n + '</span>'; }).join('') + '</div><div class="cal__grid" style="grid-template-rows:repeat(' + weeks + ',minmax(0,1fr))">' + cells + '</div>' +
+    '<div class="cal__legend"><span>' + icon('clock', 'icon--12') + 'Losse deadline</span><span>' + icon('check-circle', 'icon--12') + 'To do met einddatum (kleur van de lijst)</span></div></div>' +
+    '<aside class="agenda">' + agenda + '</aside></div></section>';
+}
+function deadlineDialog(d) {
+  var isNew = !d.id;
+  var body = fieldRow('Deadline', 'd-title', textInput('d-title', d.title, { cls: 'text-field--full', af: isNew, ph: 'Waar gaat het om?' })) +
+    fieldRow('Datum', 'd-date', textInput('d-date', d.due_date || '', { type: 'date' })) +
+    fieldRow('Tijd', 'd-time', textInput('d-time', fmtTime(d.due_time), { type: 'time' }) + '<span class="muted">optioneel</span>') +
+    (isNew ? '' : fieldRow('Afgerond', 'd-done', '<input type="checkbox" class="cl-check" id="d-done"' + (d.done ? ' checked' : '') + '>')) +
+    '<div class="tsec"><label class="tsec__title" for="t-notes">' + icon('note') + 'Notities</label><textarea class="textarea tnotes" id="t-notes" placeholder="Typ een toelichting">' + esc(d.notes || '') + '</textarea></div>' +
+    '<p class="tsec__hint" style="margin-left:0">Een losse deadline staat alleen in de kalender, niet op het to do-bord.</p>';
+  function valid() { var a = !!$('#d-title').value.trim(), b = !!$('#d-date').value; $('#d-title').parentNode.classList.toggle('text-field--error', !a); $('#d-date').parentNode.classList.toggle('text-field--error', !b); if (!a) $('#d-title').focus(); else if (!b) $('#d-date').focus(); return a && b; }
+  var buttons = [{ label: isNew ? 'Toevoegen' : 'Opslaan', cls: 'btn--primary', validate: valid }, { label: 'Annuleren', cancel: true }];
+  if (!isNew) buttons.push({ label: 'Verwijderen', cls: 'btn--danger', value: 'delete' });
+  var p = openPopup({ side: true, title: isNew ? 'Nieuwe deadline' : 'Deadline', body: body, buttons: buttons, collect: function () {
+    var done = $('#d-done') ? $('#d-done').checked : false;
+    return { title: $('#d-title').value.trim(), due_date: $('#d-date').value, due_time: $('#d-time').value ? $('#d-time').value.slice(0, 5) + ':00' : null, notes: $('#t-notes').value.trim() || null, done: done, done_at: done ? (d.done_at || new Date().toISOString()) : null };
+  } });
+  autoGrow($('#t-notes'));
+  return p;
 }
 
 /* ---------- NOTITIES: projecten · notities · editor ---------- */
@@ -549,6 +626,34 @@ function actMoveTask(id, lid, beforeId) {
   Object.assign(t, { list_id: lid, sort: sort }); render();
   Store.update('tasks', id, { list_id: lid, sort: sort }).then(function (u) { Object.assign(t, u); }).catch(function (e) { Object.assign(t, before); render(); fail(e); });
 }
+/* deadlines */
+function showMonthOf(iso) { if (iso) S.calMonth = String(iso).slice(0, 7); }
+async function actNewDeadline(date) {
+  var r = await deadlineDialog({ title: '', due_date: date || (S.calMonth && S.calMonth !== todayIso().slice(0, 7) ? '' : todayIso()), due_time: null, notes: '' });
+  if (!r) return;
+  try { S.deadlines.push(await Store.insert('deadlines', r.data)); index(); showMonthOf(r.data.due_date); if (route.view !== 'deadlines') go('deadlines'); else render(); toast('Deadline toegevoegd.'); } catch (e) { fail(e); }
+}
+async function patchDeadline(id, patch, msg) {
+  var d = IX.deadline[id]; if (!d) return;
+  try { Object.assign(d, await Store.update('deadlines', id, patch)); index(); render(); if (msg) toast(msg); } catch (e) { fail(e); }
+}
+async function actEditDeadline(id) {
+  var d = IX.deadline[id]; if (!d) return;
+  var r = await deadlineDialog(d);
+  if (!r) return;
+  if (r.value === 'delete') {
+    if (!(await confirmPopup('Deadline verwijderen?', '"' + d.title + '" wordt definitief verwijderd.', 'Verwijderen'))) return;
+    try { await Store.remove('deadlines', id); S.deadlines = S.deadlines.filter(function (x) { return x.id !== id; }); index(); render(); toast('Deadline verwijderd.'); } catch (e) { fail(e); }
+    return;
+  }
+  showMonthOf(r.data.due_date); patchDeadline(id, r.data);
+}
+function actToggleDeadline(id) { var d = IX.deadline[id]; if (!d) return; patchDeadline(id, { done: !d.done, done_at: d.done ? null : new Date().toISOString() }, d.done ? 'Deadline teruggezet.' : 'Deadline afgerond.'); }
+function actCalMove(dir) {
+  var ym = S.calMonth || todayIso().slice(0, 7), d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + dir, 1);
+  S.calMonth = isoDate(d).slice(0, 7); render();
+}
+
 /* lijsten */
 async function actNewList() {
   var name = await promptText('Nieuwe lijst', '', 'Toevoegen', 'Naam van de lijst'); if (!name) return null;
@@ -623,7 +728,7 @@ async function actNoteDelete(id) {
   try { clearTimeout(NS.timer); NS.dirty = false; dirty = false; await Store.remove('notes', id); S.notes = S.notes.filter(function (x) { return x.id !== id; }); index(); toast('Notitie verwijderd.'); go('notities/' + n.project_id); } catch (e) { fail(e); }
 }
 function actExport() {
-  var data = { exported_at: new Date().toISOString(), lists: S.lists, labels: S.labels, tasks: S.tasks, projects: S.projects, notes: S.notes };
+  var data = { exported_at: new Date().toISOString(), lists: S.lists, labels: S.labels, tasks: S.tasks, deadlines: S.deadlines, projects: S.projects, notes: S.notes };
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   var d = new Date(); a.download = String(d.getFullYear()).slice(2) + pad(d.getMonth() + 1) + pad(d.getDate()) + ' To do export.json';
@@ -677,6 +782,11 @@ function bindEvents() {
         case 'label-filter': S.labelFilter = id || ''; render(); break;
         case 'new-task': actNewTask(); break;
         case 'new-list': actNewList(); break;
+        case 'new-deadline': actNewDeadline(a.dataset.date); break;
+        case 'edit-deadline': actEditDeadline(id); break;
+        case 'toggle-deadline': actToggleDeadline(id); break;
+        case 'cal-move': actCalMove(+a.dataset.dir); break;
+        case 'cal-today': S.calMonth = ''; render(); break;
         case 'list-rename': actListRename(id); break;
         case 'list-move': moveInOrder('lists', S.lists, id, +a.dataset.dir); break;
         case 'list-delete': actListDelete(id); break;
@@ -748,7 +858,7 @@ function bindEvents() {
     if (t.classList && t.classList.contains('cl-text') && !(e.ctrlKey || e.metaKey)) { e.preventDefault(); if (t.value.trim()) clInsertAfter(t.closest('.cl-row')); else $('#cl-new').focus(); return; }
     if (t.id === 'new-label') { e.preventDefault(); actLabelAdd(); return; }
     if (t.id === 'note-title') { e.preventDefault(); $('#note-body').focus(); return; }
-    if (popupOpen() && (t.id === 'p-text' || t.id === 't-title' || t.id === 't-due' || e.ctrlKey || e.metaKey)) { e.preventDefault(); var b = $('#popup [data-pbtn="0"]'); if (b) b.click(); }
+    if (popupOpen() && (t.id === 'p-text' || t.id === 't-title' || t.id === 't-due' || t.id === 'd-title' || t.id === 'd-date' || t.id === 'd-time' || e.ctrlKey || e.metaKey)) { e.preventDefault(); var b = $('#popup [data-pbtn="0"]'); if (b) b.click(); }
   });
   $('#overlay').addEventListener('click', cancelPopup);
   /* verticale scrollbalk van een lijst alleen tonen terwijl er gescrold wordt */
