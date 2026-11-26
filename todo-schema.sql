@@ -78,6 +78,22 @@ create table if not exists public.notes (
   updated_at  timestamptz not null default now()
 );
 
+-- ---------- deadlines ----------
+-- losse deadlines voor de kalender; staan los van de to do's (to do's met een einddatum komen ook in de kalender)
+create table if not exists public.deadlines (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null default public.todo_eigenaar() references auth.users(id) on delete cascade,
+  title       text not null,
+  due_date    date not null,
+  due_time    time,                                   -- optioneel tijdstip
+  notes       text,
+  done        boolean not null default false,
+  done_at     timestamptz,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists deadlines_date_idx on public.deadlines(due_date);
+
 create index if not exists tasks_list_idx    on public.tasks(list_id, done, sort);
 create index if not exists notes_project_idx on public.notes(project_id, updated_at desc);
 
@@ -85,7 +101,7 @@ create index if not exists notes_project_idx on public.notes(project_id, updated
 do $$
 declare t text;
 begin
-  foreach t in array array['lists','labels','tasks','projects','notes'] loop
+  foreach t in array array['lists','labels','tasks','projects','notes','deadlines'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('drop policy if exists eigen_rijen on public.%I', t);
     execute format('create policy eigen_rijen on public.%I for all to authenticated
