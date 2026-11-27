@@ -22,7 +22,7 @@ Vormgeving: het Moneybird-template van het CRM voor de schil (bovenbalk, zijbalk
 - **Taak openen:** klik op de kaart. Rechts schuift een paneel open met lijst, labels, einddatum, de checklist en de notities. Ctrl+Enter slaat op.
 - **Checklist met sub to do's:** Enter voegt een item toe, Tab maakt van een item een sub to do onder het item erboven, Shift+Tab zet het terug (of gebruik het pijltje achter het item).
 - **Afvinken:** klik op het rondje. De taak verhuist naar *Voltooide taken*; daar zet je hem met hetzelfde rondje terug.
-- **Verplaatsen:** sleep een kaart naar een andere lijst of een andere plek, of gebruik de drie puntjes op de kaart (handig op de telefoon). Via dezelfde puntjes zet je snel een label aan of uit.
+- **Verplaatsen:** sleep een kaart naar een andere lijst of een andere plek (op de telefoon: kaart even vasthouden en dan slepen); de andere kaarten schuiven opzij. Of gebruik de drie puntjes op de kaart (handig op de telefoon). Via dezelfde puntjes zet je snel een label aan of uit.
 - **Lijsten:** *Nieuwe lijst* rechts van het bord; de drie puntjes naast de lijstnaam voor hernoemen, naar links of rechts schuiven en verwijderen.
 - **Labels:** beheren onder Instellingen (naam en kleur). Boven het bord filter je op een label.
 - **Zoeken:** het zoekveld bovenin (toets `/`) filtert de taken, of op de notitiepagina alle notities.

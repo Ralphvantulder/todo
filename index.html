@@ -517,15 +517,12 @@ body[data-view=taken] .main,body[data-view=notities] .main{padding-bottom:0}
 .col__add:hover{background:#ebebeb}
 .col__body{flex:1;min-height:60px;overflow-y:auto;overflow-x:hidden;padding:2px 6px 32px 2px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:transparent transparent;transition:scrollbar-color .25s}
 .col__body.is-scrolling{scrollbar-color:rgba(0,0,0,.42) transparent}
-.col--end .col__body::after{content:"";display:block;height:3px;border-radius:2px;background:#5b5fc7;flex-shrink:0;order:0}
 
 /* kaart */
 .tcard{position:relative;flex-shrink:0;display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px;border-radius:8px;background:#fff;border:1px solid var(--tline);
   box-shadow:0 1px 2px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.05);cursor:pointer;outline:0}
 .tcard:hover{box-shadow:0 2px 4px rgba(0,0,0,.1),0 6px 12px rgba(0,0,0,.09)}
 .tcard:focus-visible{border-color:#5b5fc7;box-shadow:0 0 0 1px #5b5fc7}
-.tcard--dragging{opacity:.35}
-.tcard--before::before{content:"";position:absolute;left:0;right:0;top:-6px;height:3px;border-radius:2px;background:#5b5fc7}
 .tcard__labels{display:flex;flex-wrap:wrap;gap:6px;padding-right:28px}
 .tcard__row{display:flex;align-items:flex-start;gap:12px;padding-left:12px}
 .tcard__labels + .tcard__row .tcard__title{padding-right:0}
@@ -754,6 +751,15 @@ body[data-view=taken] .main,body[data-view=notities] .main{padding-bottom:0}
   .cal-nav__month{font-size:16px}
   .agenda{overflow:visible;padding:16px 0 0}
 }
+
+/* ---------- kaart slepen ---------- */
+.tcard{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.tcard--ghost{position:fixed;left:0;top:0;z-index:9000;margin:0;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.22),0 2px 6px rgba(0,0,0,.12);cursor:grabbing;will-change:transform;opacity:.97}
+.tcard--ghost .drpdwn{display:none}
+.tcard--placeholder{background:rgba(0,0,0,.05)!important;border:1.5px dashed rgba(0,0,0,.22)!important;box-shadow:none!important}
+.tcard--placeholder>*{visibility:hidden}
+body.dragging,body.dragging *{cursor:grabbing!important}
+body.dragging .tcard:hover{box-shadow:none}
 
 /* ============================================================
    12. RESPONSIVE (Moneybird breekt bij 1100, 960, 768, 480) — achteraan, anders winnen de gewone regels
@@ -1208,7 +1214,7 @@ function cardHtml(t) {
     (S.labels.length ? '<hr class="drpdwn__divider">' + S.labels.map(function (l) { return menuItem('task-label', t.id, arr(t.label_ids).indexOf(l.id) >= 0 ? 'check' : '', l.name, ' data-label="' + esc(l.id) + '"'); }).join('') : '') +
     (S.lists.length > 1 ? '<hr class="drpdwn__divider">' + S.lists.filter(function (l) { return l.id !== t.list_id; }).map(function (l) { return menuItem('move-task', t.id, 'chevron-right', 'Naar ' + l.name, ' data-list="' + esc(l.id) + '"'); }).join('') : '') +
     '<hr class="drpdwn__divider">' + menuItem('delete-task', t.id, 'trash', 'Verwijderen', '', 'drpdwn__item--danger');
-  return '<div class="tcard' + (t.done ? ' tcard--done' : '') + '" draggable="true" data-tid="' + esc(t.id) + '" tabindex="0">' +
+  return '<div class="tcard' + (t.done ? ' tcard--done' : '') + '" data-tid="' + esc(t.id) + '" tabindex="0">' +
     (labels.length ? '<div class="tcard__labels">' + labels.map(labelChip).join('') + '</div>' : '') +
     '<div class="tcard__row"><button class="tcheck' + (t.done ? ' tcheck--on' : '') + '" type="button" data-act="toggle-task" data-id="' + esc(t.id) + '" aria-label="' + (t.done ? 'Terugzetten naar niet voltooid' : 'Taak voltooien') + '" title="' + (t.done ? 'Terugzetten' : 'Voltooien') + '">' + icon('check') + '</button>' +
     '<span class="tcard__title">' + esc(t.title) + '</span></div>' +
@@ -1793,6 +1799,7 @@ function bindEvents() {
     var t = e.target;
     if (e.key === 'Escape') {
       if ($('.drpdwn--open')) { closeMenus(); return; }
+      if (DG && DG.active) { dragEnd(false); return; }
       if (popupOpen()) { cancelPopup(); return; }
       if (t.id === 'new-task') { S.adding = null; t.value = ''; render(); return; }
     }
@@ -1823,31 +1830,104 @@ function bindEvents() {
   }, true);
   document.addEventListener('scroll', function (e) { if ($('.drpdwn--open [data-fixed]') && e.target.classList && (e.target.classList.contains('col__body') || e.target.classList.contains('board') || e.target.classList.contains('npane__scroll'))) closeMenus(); }, true);
 
-  /* kaarten slepen: naar een andere lijst of een andere plek in dezelfde lijst */
-  var dragId = null;
-  function clearMarks() { $all('.tcard--before,.col--over,.col--end').forEach(function (c) { c.classList.remove('tcard--before', 'col--over', 'col--end'); }); }
+  /* kaarten slepen: alleen de kaart beweegt mee met de muis of vinger; op de plek waar hij zou landen
+     schuiven de andere kaarten opzij. Muis: slepen na een paar pixels. Aanraken: kaart even vasthouden. */
+  var dragId = null, DG = null, swallowClick = false;
   function dropTarget(col, y) {
-    var cards = $all('.tcard[data-tid]:not(.tcard--done):not(.tcard--dragging)', col);
+    var cards = $all('.tcard[data-tid]:not(.tcard--done):not(.tcard--placeholder)', col);
     for (var i = 0; i < cards.length; i++) { var r = cards[i].getBoundingClientRect(); if (y < r.top + r.height / 2) return cards[i]; }
     return null;
   }
-  document.addEventListener('dragstart', function (e) { var c = e.target.closest && e.target.closest('.tcard[data-tid]'); if (!c) return; closeMenus(); dragId = c.dataset.tid; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch (x) {} setTimeout(function () { c.classList.add('tcard--dragging'); }, 0); });
-  document.addEventListener('dragend', function () { dragId = null; $all('.tcard--dragging').forEach(function (c) { c.classList.remove('tcard--dragging'); }); clearMarks(); });
-  document.addEventListener('dragover', function (e) {
-    var col = e.target.closest && e.target.closest('.col[data-list]'); if (!col || !dragId) return;
-    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-    var before = dropTarget(col, e.clientY); clearMarks(); col.classList.add('col--over');
-    if (before) before.classList.add('tcard--before'); else col.classList.add('col--end');
-    var body = $('.col__body', col), br = body.getBoundingClientRect();
-    if (e.clientY < br.top + 40) body.scrollTop -= 12; else if (e.clientY > br.bottom - 40) body.scrollTop += 12;
+  /* FLIP: kaarten glijden naar hun nieuwe plek in plaats van te verspringen */
+  function flip(change) {
+    var cards = $all('#board .tcard:not(.tcard--placeholder), #board .col__done'), tops = cards.map(function (c) { return c.getBoundingClientRect().top; });
+    change();
+    cards.forEach(function (c, i) {
+      var dy = tops[i] - c.getBoundingClientRect().top; if (!dy) return;
+      c.style.transition = 'none'; c.style.transform = 'translateY(' + dy + 'px)';
+      void c.offsetHeight;
+      c.style.transition = 'transform .16s ease'; c.style.transform = '';
+    });
+  }
+  function dragPlace(x, y) {
+    var el = document.elementFromPoint(x, y), col = el && el.closest ? el.closest('.col[data-list]') : null;
+    $all('.col--over').forEach(function (c) { if (c !== col) c.classList.remove('col--over'); });
+    if (!col) return;
+    col.classList.add('col--over');
+    var body = $('.col__body', col), ph = DG.card, ref;
+    if (DG.done) ref = null;
+    else { ref = dropTarget(col, y); if (!ref) ref = $('.col__done', body); }
+    if (ph.parentNode === body && ph.nextElementSibling === ref) return;
+    if (ref === ph) return;
+    flip(function () { body.insertBefore(ph, ref || null); });
+  }
+  function dragMove(x, y) {
+    DG.x = x; DG.y = y;
+    DG.ghost.style.transform = 'translate(' + (x - DG.ox) + 'px,' + (y - DG.oy) + 'px) rotate(2deg)';
+    dragPlace(x, y);
+  }
+  function dragScroll() {
+    if (!DG || !DG.active) return;
+    var board = $('#board'), moved = false;
+    if (board) {
+      var r = board.getBoundingClientRect();
+      if (DG.x < r.left + 50) { board.scrollLeft -= 14; moved = true; } else if (DG.x > r.right - 50) { board.scrollLeft += 14; moved = true; }
+      var el = document.elementFromPoint(DG.x, DG.y), col = el && el.closest ? el.closest('.col[data-list]') : null, body = col ? $('.col__body', col) : null;
+      if (body) { var br = body.getBoundingClientRect(); if (DG.y < br.top + 44) { body.scrollTop -= 10; moved = true; } else if (DG.y > br.bottom - 44) { body.scrollTop += 10; moved = true; } }
+    }
+    if (moved) dragPlace(DG.x, DG.y);
+    DG.raf = requestAnimationFrame(dragScroll);
+  }
+  function dragBegin() {
+    var c = DG.card, r = c.getBoundingClientRect(), g = c.cloneNode(true);
+    closeMenus(); DG.active = true; dragId = DG.id; DG.ox = DG.sx - r.left; DG.oy = DG.sy - r.top;
+    g.classList.add('tcard--ghost'); g.removeAttribute('data-tid'); g.removeAttribute('tabindex');
+    g.style.width = r.width + 'px'; g.style.height = r.height + 'px';
+    document.body.appendChild(g); DG.ghost = g;
+    c.style.height = r.height + 'px'; c.classList.add('tcard--placeholder');
+    document.body.classList.add('dragging');
+    dragMove(DG.x, DG.y); DG.raf = requestAnimationFrame(dragScroll);
+  }
+  function dragEnd(commit) {
+    var d = DG; DG = null; if (!d) return;
+    clearTimeout(d.timer);
+    if (!d.active) return;
+    cancelAnimationFrame(d.raf); d.ghost.remove(); document.body.classList.remove('dragging');
+    $all('.col--over').forEach(function (c) { c.classList.remove('col--over'); });
+    swallowClick = true; setTimeout(function () { swallowClick = false; }, 60);
+    var col = d.card.closest('.col[data-list]'), t = IX.task[d.id], next = d.card.nextElementSibling;
+    while (next && !(next.matches && next.matches('.tcard[data-tid]:not(.tcard--done)'))) next = next.nextElementSibling;
+    dragId = null;
+    if (!commit || !col || !t) { render(); return; }
+    if (t.done) { if (t.list_id !== col.dataset.list) patchTask(d.id, { list_id: col.dataset.list }); else render(); return; }
+    var before = { list_id: t.list_id, sort: t.sort };
+    actMoveTask(d.id, col.dataset.list, next ? next.dataset.tid : null);
+    if (t.list_id === before.list_id && t.sort === before.sort) render();
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (DG || e.button > 0 || !e.isPrimary) return;
+    var c = e.target.closest && e.target.closest('#board .tcard[data-tid]');
+    if (!c || e.target.closest('button,a,input,textarea,select,.drpdwn')) return;
+    DG = { id: c.dataset.tid, card: c, done: c.classList.contains('tcard--done'), sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, touch: e.pointerType === 'touch', active: false, pid: e.pointerId };
+    if (DG.touch) DG.timer = setTimeout(function () { if (DG && !DG.active) { dragBegin(); if (navigator.vibrate) try { navigator.vibrate(10); } catch (x) {} } }, 320);
   });
-  document.addEventListener('drop', function (e) {
-    var col = e.target.closest && e.target.closest('.col[data-list]'); if (!col || !dragId) return;
-    e.preventDefault(); var id = dragId, before = dropTarget(col, e.clientY); dragId = null; clearMarks();
-    var t = IX.task[id]; if (!t) return;
-    if (t.done) { if (t.list_id !== col.dataset.list) patchTask(id, { list_id: col.dataset.list }); else render(); return; }
-    actMoveTask(id, col.dataset.list, before ? before.dataset.tid : null);
+  document.addEventListener('pointermove', function (e) {
+    if (!DG || e.pointerId !== DG.pid) return;
+    var dx = e.clientX - DG.sx, dy = e.clientY - DG.sy;
+    if (!DG.active) {
+      if (DG.touch) { if (Math.abs(dx) > 8 || Math.abs(dy) > 8) { clearTimeout(DG.timer); DG = null; } return; }
+      if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      DG.x = e.clientX; DG.y = e.clientY; dragBegin(); return;
+    }
+    e.preventDefault(); dragMove(e.clientX, e.clientY);
   });
+  document.addEventListener('pointerup', function (e) { if (DG && e.pointerId === DG.pid) dragEnd(true); });
+  document.addEventListener('pointercancel', function (e) { if (DG && e.pointerId === DG.pid) dragEnd(false); });
+  document.addEventListener('touchmove', function (e) { if (DG && DG.active) e.preventDefault(); }, { passive: false });
+  document.addEventListener('contextmenu', function (e) { if (DG) e.preventDefault(); });
+  document.addEventListener('click', function (e) { if (swallowClick) { e.stopPropagation(); e.preventDefault(); swallowClick = false; } }, true);
+  document.addEventListener('dragstart', function (e) { if (e.target.closest && e.target.closest('.tcard')) e.preventDefault(); });
+  window.addEventListener('blur', function () { if (DG) dragEnd(false); });
 
   window.addEventListener('hashchange', function () { flushNote(); S.adding = null; render(); window.scrollTo(0, 0); });
   window.addEventListener('beforeunload', function (e) { if (dirty) { flushNote(); e.preventDefault(); e.returnValue = ''; } });
